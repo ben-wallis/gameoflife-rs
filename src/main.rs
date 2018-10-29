@@ -5,27 +5,26 @@ extern crate opengl_graphics;
 extern crate rand;
 
 use piston::window::WindowSettings;
-use graphics::{DrawState,Transformed,math}; // from piston2d-graphics
 use piston::event_loop::*;
 use piston::input::*;
+use graphics::{DrawState,Transformed,math}; // from piston2d-graphics
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{ GlGraphics, OpenGL };
 use std::thread::sleep;
-
 use rand::prelude::*;
 
-pub struct App {
+pub struct Game {
     state: [[bool; 100]; 100],
     next: [[bool; 100]; 100]
 }
 
-impl App {
+impl Game {
     fn render(&mut self,  _: DrawState, transform: math::Matrix2d,  gfx: &mut GlGraphics) {
         use graphics::*;
 
         const WHITE: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
         const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
-
+        
         const OUTER_CELLSIZE: f64 = 8f64;
         const INNER_CELLSIZE: f64 = 6f64;
 
@@ -43,20 +42,38 @@ impl App {
         }
     }
 
-    fn update_cell(&mut self, x: usize, y:usize) {
+    fn update(&mut self, _args: &UpdateArgs) {
+        // Create the state for the next frame with all cells initialised as dead
+        self.next = [[false; 100]; 100];
+        
+        // Update each cell
+        for x in 0..100 {
+            for y in 0..100 {
+                self.update_cell(x, y);
+            }
+        }
+
+        // Replace the existing game state with the new updated game state
+        self.state = self.next;
+    }
+
+    fn update_cell(&mut self, x: usize, y: usize) {
         // Calculate number of alive neighbours
         const OFFSETS: [(i8,i8); 8] = [(0, -1), (0, 1), (-1, -1), (-1, 0), (-1, 1), (1, -1), (1, 0), (1, 1)];
         let mut neighbours = 0;
+
+        // Check each neighbour cell
         for (offset_x, offset_y) in OFFSETS.iter() {
             let x2 = wrap_around(x as i8 + offset_x);
             let y2 = wrap_around(y as i8 + offset_y);
 
-            if self.state[x2 as usize][y2 as usize] {
+            // If the neighbour cell is alive then increase the neighbours count
+            if self.state[x2][y2] {
                 neighbours += 1;
             }            
         }
 
-        // Set cell's alive based on current alive state and number of neighbours
+        // Set cell's alive state based on current alive state and number of neighbours
         if self.state[x][y] {
             self.next[x][y] = neighbours == 2 || neighbours == 3;
         } else {
@@ -64,33 +81,22 @@ impl App {
         }
     }
 
-    fn update(&mut self, _args: &UpdateArgs) {
-        self.next = [[false; 100]; 100];
-        
-        for x in 0..100 {
-            for y in 0..100 {
-                self.update_cell(x, y);
-            }
-        }
-        self.state = self.next;
-    }
-
-    fn reset(&mut self) {
+    fn initialise(&mut self) {
         let mut rng = thread_rng();
 
-        for x in 0..99 {
-            for y in 0..99 {
+        for x in 0..100 {
+            for y in 0..100 {
                 self.state[x][y] = rng.gen_range(0, 3) == 0;
             }
         }
     }
 }
 
-fn wrap_around(x: i8) -> i8 {
+fn wrap_around(x: i8) -> usize {
     if x < 0 {
-        x + 100
+        (x + 100) as usize
     } else {
-        x % 100
+        (x % 100) as usize
     }
 }
 
@@ -106,29 +112,17 @@ fn main() {
         .unwrap();
 
     // Create a new game and run it.
-    let mut app = App {
-        
+    let mut app = Game {        
         state: [[false; 100]; 100],
         next: [[false; 100]; 100]
     };
 
+    // Perform the initial seeding of the game state
+    app.initialise();
+
     let mut gfx = GlGraphics::new(OpenGL::V3_2);
-
-    // // Spinner
-    // app.state[10][10] = true;
-    // app.state[10][11] = true;
-    // app.state[10][12] = true;
-
-    // // Glider
-    // app.state[94][93] = true;
-    // app.state[95][94] = true;
-    // app.state[93][95] = true;
-    // app.state[94][95] = true;
-    // app.state[95][95] = true;
-
-    app.reset();
-
     let mut events = Events::new(EventSettings::new());
+
     while let Some(e) = events.next(&mut window) {
         if let Some(r) = e.render_args() {
             gfx.draw(r.viewport(), |context, gfx| {
@@ -148,7 +142,14 @@ fn main() {
         if let Some(Button::Keyboard(key)) = e.press_args() {
             if key == Key::R {
                 println!("Reset!");
-                app.reset();
+                app.initialise();
+            } else if key == Key::S {
+                // Glider
+                app.state[54][53] = true;
+                app.state[55][54] = true;
+                app.state[53][55] = true;
+                app.state[54][55] = true;
+                app.state[55][55] = true;
             }
 
             println!("Pressed keyboard key '{:?}'", key);
