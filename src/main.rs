@@ -1,16 +1,17 @@
-extern crate piston;
-extern crate graphics;
 extern crate glutin_window;
+extern crate graphics;
 extern crate opengl_graphics;
+extern crate piston;
 extern crate rand;
 
+use std::mem;
+use std::thread::sleep;
+use glutin_window::GlutinWindow as Window;
+use graphics::{DrawState,Transformed,math}; // from piston2d-graphics
+use opengl_graphics::{ GlGraphics, OpenGL };
 use piston::window::WindowSettings;
 use piston::event_loop::*;
 use piston::input::*;
-use graphics::{DrawState,Transformed,math}; // from piston2d-graphics
-use glutin_window::GlutinWindow as Window;
-use opengl_graphics::{ GlGraphics, OpenGL };
-use std::thread::sleep;
 use rand::prelude::*;
 
 pub struct Game {
@@ -44,6 +45,7 @@ impl Game {
 
     fn update(&mut self, _args: &UpdateArgs) {
         // Create the state for the next frame with all cells initialised as dead
+        // TODO: Zero out existing self.next instead - more efficient than allocating a new array?
         self.next = [[false; 100]; 100];
         
         // Update each cell
@@ -54,7 +56,7 @@ impl Game {
         }
 
         // Replace the existing game state with the new updated game state
-        self.state = self.next;
+        mem::swap(&mut self.state, &mut self.next);
     }
 
     fn update_cell(&mut self, x: usize, y: usize) {
